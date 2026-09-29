@@ -7,9 +7,9 @@ export interface SaleEntity {
   import_id: string
   quantity: number
   selling_price: number
-  buyer_name: string | null
-  buyer_phone: string | null
-  buyer_address: string | null
+  buyer_name?: string | null
+  buyer_phone?: string | null
+  buyer_address?: string | null
   sold_at: string
   created_at: string
   updated_at: string
