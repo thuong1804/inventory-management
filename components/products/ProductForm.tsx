@@ -24,6 +24,31 @@ export function ProductForm({
   isSubmitting = false,
   categories,
 }: ProductFormProps) {
+  // Deduplicate categories and remove empty items
+  const uniqueCategories = React.useMemo(() => {
+    const seen = new Set<string>()
+    const list: string[] = []
+    for (const cat of categories) {
+      const trimmed = cat.trim()
+      if (trimmed && !seen.has(trimmed.toLowerCase())) {
+        seen.add(trimmed.toLowerCase())
+        list.push(trimmed)
+      }
+    }
+    return list
+  }, [categories])
+
+  const initialCat = defaultValues?.category || uniqueCategories[0] || 'Điện thoại & Tablet'
+  const isInitialCustom = Boolean(
+    defaultValues?.category &&
+    !uniqueCategories.some((c) => c.toLowerCase() === defaultValues.category?.toLowerCase())
+  )
+
+  const [isCustom, setIsCustom] = React.useState<boolean>(isInitialCustom)
+  const [customValue, setCustomValue] = React.useState<string>(
+    isInitialCustom ? (defaultValues?.category || '') : ''
+  )
+
   const {
     register,
     handleSubmit,
@@ -35,7 +60,7 @@ export function ProductForm({
     defaultValues: {
       name: defaultValues?.name || '',
       sku: defaultValues?.sku || '',
-      category: defaultValues?.category || (categories[0] || 'Điện thoại & Tablet'),
+      category: isInitialCustom ? (defaultValues?.category || '') : initialCat,
     },
   })
 
@@ -85,27 +110,48 @@ export function ProductForm({
         <div className="space-y-2">
           <select
             id="category"
-            value={currentCategory}
-            onChange={(e) => setValue('category', e.target.value)}
+            value={isCustom ? '__custom__' : currentCategory}
+            onChange={(e) => {
+              const val = e.target.value
+              if (val === '__custom__') {
+                setIsCustom(true)
+                setValue('category', customValue.trim(), { shouldValidate: true })
+              } else {
+                setIsCustom(false)
+                setValue('category', val, { shouldValidate: true })
+              }
+            }}
             disabled={isSubmitting}
             className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring dark:bg-card"
           >
-            {categories.map((cat) => (
+            {uniqueCategories.map((cat) => (
               <option key={cat} value={cat} className="bg-popover text-popover-foreground">
                 {cat}
               </option>
             ))}
-            <option value="Khác" className="bg-popover text-popover-foreground">
+            <option value="__custom__" className="bg-popover text-popover-foreground">
               + Khác (Nhập tùy chỉnh)
             </option>
           </select>
 
-          {currentCategory === 'Khác' && (
-            <Input
-              placeholder="Nhập tên danh mục mới..."
-              onChange={(e) => setValue('category', e.target.value)}
-              className="h-8 text-xs"
-            />
+          {isCustom && (
+            <div className="space-y-1 pt-0.5">
+              <Input
+                placeholder="Nhập tên danh mục mới..."
+                value={customValue}
+                autoFocus
+                disabled={isSubmitting}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setCustomValue(val)
+                  setValue('category', val, { shouldValidate: true })
+                }}
+                className="h-8 text-xs"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Nhập tên danh mục tùy chỉnh cho sản phẩm này
+              </p>
+            </div>
           )}
         </div>
         {errors.category && (

@@ -90,8 +90,9 @@ export type DashboardSummary = {
   gross_profit: number
   total_expenses: number
   net_profit: number
-  total_products: number
-  total_imported: number
-  total_sold: number
-  remaining_stock: number
+  total_products?: number
+  total_imported?: number
+  total_sold?: number
+  remaining_stock?: number
+  remaining_quantity?: number
 }

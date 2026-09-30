@@ -10,6 +10,8 @@ import { createClient } from '@/lib/supabase/client'
 import { storage } from './storage'
 import { saleService } from './sale.service'
 import { expenseService } from './expense.service'
+import { productService } from './product.service'
+import { importService } from './import.service'
 import {
   isToday,
   isThisWeek,
@@ -53,16 +55,80 @@ export const dashboardService = {
   async getStats(): Promise<DashboardStats> {
     if (isSupabaseConfigured()) {
       try {
-        const summary = await getDashboardSummary()
+        const [summary, products, imports] = await Promise.all([
+          getDashboardSummary().catch((err) => {
+            console.warn('Supabase dashboard summary view error:', err)
+            return null
+          }),
+          productService.getAll().catch((err) => {
+            console.warn('Supabase products error:', err)
+            return []
+          }),
+          importService.getAll().catch((err) => {
+            console.warn('Supabase imports error:', err)
+            return []
+          }),
+        ])
+
         if (summary) {
+          const importsRemaining = imports.reduce(
+            (acc, imp) => acc + (imp.remainingQuantity || 0),
+            0
+          )
+          const productsRemainingFromList = products.reduce(
+            (acc, p) => acc + (p.remainingQuantity || 0),
+            0
+          )
+          const dbRemaining =
+            (summary as any).remaining_quantity ??
+            summary.remaining_stock ??
+            0
+
+          const productsRemaining =
+            importsRemaining > 0
+              ? importsRemaining
+              : productsRemainingFromList > 0
+              ? productsRemainingFromList
+              : Number(dbRemaining)
+
+          const totalProducts =
+            products.length > 0
+              ? products.length
+              : Number(summary.total_products ?? 0)
+
           return {
-            totalRevenue: summary.total_revenue ?? 0,
-            totalCost: summary.total_cost ?? 0,
-            grossProfit: summary.gross_profit ?? 0,
-            netProfit: summary.net_profit ?? 0,
-            totalProducts: summary.total_products ?? 0,
-            productsRemaining: summary.remaining_stock ?? 0,
-            totalExpenses: summary.total_expenses ?? 0,
+            totalRevenue: Number(summary.total_revenue ?? 0),
+            totalCost: Number(summary.total_cost ?? 0),
+            grossProfit: Number(summary.gross_profit ?? 0),
+            netProfit: Number(summary.net_profit ?? 0),
+            totalProducts,
+            productsRemaining,
+            totalExpenses: Number(summary.total_expenses ?? 0),
+          }
+        } else {
+          // If dashboard_summary view is not available, calculate from services directly
+          const [sales, expenses] = await Promise.all([
+            saleService.getAll().catch(() => []),
+            expenseService.getAll().catch(() => []),
+          ])
+          const totalRevenue = sales.reduce((acc, s) => acc + s.revenue, 0)
+          const totalCost = sales.reduce((acc, s) => acc + s.cost, 0)
+          const grossProfit = totalRevenue - totalCost
+          const totalExpenses = expenses.reduce((acc, e) => acc + e.amount, 0)
+          const netProfit = grossProfit - totalExpenses
+          const productsRemaining = imports.reduce(
+            (acc, i) => acc + (i.remainingQuantity || 0),
+            0
+          )
+
+          return {
+            totalRevenue,
+            totalCost,
+            grossProfit,
+            netProfit,
+            totalProducts: products.length,
+            productsRemaining,
+            totalExpenses,
           }
         }
       } catch (err) {

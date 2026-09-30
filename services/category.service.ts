@@ -32,7 +32,19 @@ export async function getCategories(): Promise<Category[]> {
     return storage.getCategories()
   }
 
-  return (data as Category[]) ?? []
+  const raw = (data as Category[]) ?? []
+  const seen = new Set<string>()
+  const uniqueCategories: Category[] = []
+
+  for (const cat of raw) {
+    const key = cat.name.trim().toLowerCase()
+    if (!seen.has(key)) {
+      seen.add(key)
+      uniqueCategories.push(cat)
+    }
+  }
+
+  return uniqueCategories
 }
 
 export async function createCategory(name: string): Promise<Category> {
@@ -42,6 +54,18 @@ export async function createCategory(name: string): Promise<Category> {
   }
 
   const supabase = createClient()
+
+  // Check if a category with this name already exists in Supabase
+  const { data: existingList } = await supabase
+    .from('categories')
+    .select('*')
+    .ilike('name', trimmed)
+    .limit(1)
+
+  if (existingList && existingList.length > 0) {
+    return existingList[0] as Category
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser()

@@ -133,7 +133,7 @@ export default function ProductsPage() {
               className="h-8 rounded-lg border border-input bg-background px-2.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <option value="all">Tất cả danh mục</option>
-              {categories.map((c) => (
+              {Array.from(new Set(categories.map((c) => c.trim()).filter(Boolean))).map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
